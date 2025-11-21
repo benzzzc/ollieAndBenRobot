@@ -37,7 +37,7 @@ public:
 		tm_group_=this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 		rclcpp::SubscriptionOptions options;
 		options.callback_group=cb_group_;
-		publisherJointPosition_ = this->create_publisher<control_msgs::msg::JointJog>("/JointJog", 10);
+		publisherJointPosition_ = this->create_publisher<control_msgs::msg::JointJog>("/JointJog", 10);// what is the ten for??
 		subscriptionJointPosition_ = this->create_subscription<sensor_msgs::msg::JointState>("/joint_states", 10, std::bind(&GoalMovementMover6::topic_jointStatesCallback, this, _1),options);
 		timer_ = this->create_wall_timer(4000ms, std::bind(&GoalMovementMover6::timer_callback, this),tm_group_);
 		
@@ -74,35 +74,57 @@ private:
 		}
 		known_states=true;
 		//RCLCPP_INFO(this->get_logger(),"Received State %f\t%f\t%f\t%f\t%f\t%f", joint1_angle, joint2_angle, joint3_angle, joint4_angle, joint5_angle, joint6_angle);
-    }
-    void send_msg(float vel) {
+		
+	void send_msg(std::vector<float> vels) {
 		auto msg_start = control_msgs::msg::JointJog();
-		std::stringstream ss;
-		ss << "joint1";
-		msg_start.joint_names.push_back(ss.str());
-		msg_start.velocities.push_back(vel);
+		for(int i = 0; i < 6; i++) {
+			std::stringstream ss;
+			ss << "joint" << (i + 1); 
+			msg_start.joint_names.push_back(ss.str());
+			msg_start.velocities.push_back(vels[i]);
+		}
 		publisherJointPosition_->publish(msg_start);
 	}
 	void move_my_robot() {
-		//RCLCPP_INFO(this->get_logger(),"move_my_robot");
-		rclcpp::Rate loop_rate(20);  
-		while(known_states==false) {
-			RCLCPP_INFO(this->get_logger(),"Waiting");
-			loop_rate.sleep();
-		}
-		jointdemand_1=0.9;
-		if(known_states) {
-			while(1) {
-				if(abs(jointdemand_1-joint1_angle)>0.03) {
-					send_msg(0.25*(jointdemand_1-joint1_angle)/abs(jointdemand_1-joint1_angle));
-				}
-				if(abs(jointdemand_1-joint1_angle)<0.03) {
-					send_msg(0);
-				}
-			}
-			loop_rate.sleep();
-		}
-	}
+    rclcpp::Rate loop_rate(20);
+    while(known_states == false) {
+        RCLCPP_INFO(this->get_logger(), "Waiting");
+        loop_rate.sleep();
+    }
+    jointdemand_1 =  0.9;
+    jointdemand_2 = -0.5;
+    jointdemand_3 =  0.5;
+    jointdemand_4 = -0.9;
+    jointdemand_5 =  1.0;
+    jointdemand_6 =  0.0;
+
+    if(known_states) {
+        while(1) {
+            std::vector<float> demands = {
+                jointdemand_1, jointdemand_2, jointdemand_3, 
+                jointdemand_4, jointdemand_5, jointdemand_6
+            };
+            std::vector<float> currents = {
+                joint1_angle, joint2_angle, joint3_angle, 
+                joint4_angle, joint5_angle, joint6_angle
+            };
+            std::vector<float> velocities_to_send;
+            for(int i = 0; i < 6; i++) {
+                float error = demands[i] - currents[i];
+                float vel = 0;
+                if(abs(error) > 0.03) {
+                    vel = 0.25 * (error / abs(error));
+                } else {
+                    vel = 0;
+                }
+                velocities_to_send.push_back(vel);
+            }
+            send_msg(velocities_to_send);
+            loop_rate.sleep();
+        }
+    }
+}
+
 	bool known_states=false;
 	float joint1_angle, joint2_angle, joint3_angle, joint4_angle, joint5_angle, joint6_angle; 
 	float jointdemand_1, jointdemand_2, jointdemand_3, jointdemand_4, jointdemand_5, jointdemand_6; 
