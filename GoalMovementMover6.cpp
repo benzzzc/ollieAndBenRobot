@@ -74,7 +74,7 @@ private:
 		}
 		known_states=true;
 		//RCLCPP_INFO(this->get_logger(),"Received State %f\t%f\t%f\t%f\t%f\t%f", joint1_angle, joint2_angle, joint3_angle, joint4_angle, joint5_angle, joint6_angle);
-		
+	}
 	void send_msg(std::vector<float> vels) {
 		auto msg_start = control_msgs::msg::JointJog();
 		for(int i = 0; i < 6; i++) {
