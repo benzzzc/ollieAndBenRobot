@@ -12,7 +12,7 @@ for i = 1:5
     seedConfig = randomConfiguration(mover6); % random seed config, that is set
     [configSoln, solnInfo] = ik('link6', targetTform, weights, seedConfig);%solve ik for new seed
     solnTform = getTransform(mover6, configSoln, 'link6', 'base_link');
-    distError = norm(targetTform(1:3,4) - solnTform(1:3,4));
+    distError = norm(targetTform(1:3,4) - solnTform(1:3,4));% finds the diff between seedtform and targettform, the norm finds mag.
     if distError < 0.01
         disp('success');
     else
