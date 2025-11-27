@@ -2,7 +2,12 @@ function [configSoln] = CartesianMover6(X,Y,Z,A,B,C)
 %   This function takes the vector form that we input and outputs a
 %   configuration of the mover6 bot that correctly reaches our desired pose
 %  
-%   Detailed explanation goes here
+%   This function, loads the mover6 model, and initialises the conditions.
+%   it then takes the input arguments for the final pose and calculates the
+%   corresponding transformation matrix. An inverse kinematic solver is
+%   implemeted to calculate the necessary joint angles each joint should
+%   make in order to achieve the desired pose.
+
 %   import the robot urdf, set the kinematics solver, set the home config
 mover6 = importrobot('CPMOVER6.urdf');
 ik = inverseKinematics('RigidBodyTree', mover6);
