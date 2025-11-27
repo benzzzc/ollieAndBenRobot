@@ -1,57 +1,28 @@
-function [configSoln] = CartesianMover6(X, Y, Z, A, B, C)
-    % 1. SETUP ROBOT AND SOLVER
-    % We use 'try-catch' to avoid reloading the robot if it's already in memory (faster)
-    persistent mover6 ik initialguess weights
-    if isempty(mover6)
-        mover6 = importrobot('CPMOVER6.urdf');
-        ik = inverseKinematics('RigidBodyTree', mover6);
-        weights = [0.25 0.25 0.25 1 1 1];
-        initialguess = mover6.homeConfiguration;
-    end
+function [configSoln] = CartesianMover6(X,Y,Z,A,B,C)
+%   This function takes the vector form that we input and outputs a
+%   configuration of the mover6 bot that correctly reaches our desired pose
+%  
+%   Detailed explanation goes here
+%   import the robot urdf, set the kinematics solver, set the home config
+mover6 = importrobot('CPMOVER6.urdf');
+ik = inverseKinematics('RigidBodyTree', mover6);
+weights = [0.25 0.25 0.25 1 1 1];
+initalguess = homeConfiguration(mover6);
 
-    % 2. CREATE THE TRANSFORMATION MATRIX (XYZABC Order)
-    
-    % --- Translations ---
-    Tx = trvec2tform([X, 0, 0]);
-    Ty = trvec2tform([0, Y, 0]);
-    Tz = trvec2tform([0, 0, Z]);
-    
-    % --- Rotations ---
-    % Inputs are in degrees, so we convert to radians.
-    % A = Rotation about Z
-    Ta = eul2tform([deg2rad(A), 0, 0]); 
-    
-    % B = Rotation about Y
-    Tb = eul2tform([0, deg2rad(B), 0]); 
-    
-    % C = Rotation about X
-    Tc = eul2tform([0, 0, deg2rad(C)]); 
-    
-    % 3. MULTIPLY IN ORDER (XYZABC)
-    % This creates the final Target Matrix
-    targetTform = Tx * Ty * Tz * Ta * Tb * Tc;
-    
-    % Debug: Display the matrix so you can verify it
-    disp('Target Matrix:');
-    disp(targetTform);
+%   Create the transformation matrix from the inputs
+%   Translation
+Tx = trvec2tform([X, 0, 0]);
+Ty = trvec2tform([0, Y, 0]);
+Tz = trvec2tform([0, 0, Z]);
+%   Rotations
+Ta = eul2tform([deg2rad(A), 0, 0]);
+Tb = eul2tform([0, deg2rad(B), 0]);
+Tc = eul2tform([0, 0, deg2rad(C)]);
 
-    % 4. SOLVE INVERSE KINEMATICS
-    % We ask the solver to find the joint angles that match this matrix
-    [configSoln, solnInfo] = ik('link6', targetTform, weights, initialguess);
-    
-    % Optional: Check if it actually worked
-    if strcmp(solnInfo.Status, 'success')
-        disp('IK Status: Success');
-    else
-        disp(['IK Status: ' solnInfo.Status]);
-    end
+%   create the transform matrix in the format given
+targetTform = Tx * Ty * Tz * Ta * Tb * Tc;
 
-    % 5. VISUALIZATION
-    % (You can comment this out if you want it to run silently)
-    figure(1);
-    show(mover6, configSoln);
-    title(['Solution for X=' num2str(X) ' Y=' num2str(Y) ' Z=' num2str(Z)]);
-    hold on;
-    plotTransforms(tform2trvec(targetTform), tform2quat(targetTform), 'FrameSize', 0.2);
-    hold off;
+%   ik solver, get the transformation solution 
+[configSoln, solnInfo] = ik('link6', targetTform, weights, initallguess);
+solnTform = getTransform(mover6, configSoln, 'link6', 'base_link');
 end
