@@ -1,65 +1,57 @@
-function CartesianMover6(target_x, target_y, target_z, target_A, target_B, target_C)
+function [configSoln] = CartesianMover6(X, Y, Z, A, B, C)
     % 1. SETUP ROBOT AND SOLVER
-    % Load the robot model
-    try
-        mover6 = importrobot('CPMOVER6.urdf'); 
-    catch
-        error('Could not load robot. Make sure CPMOVER6.urdf is in your MATLAB path.');
+    % We use 'try-catch' to avoid reloading the robot if it's already in memory (faster)
+    persistent mover6 ik initialguess weights
+    if isempty(mover6)
+        mover6 = importrobot('CPMOVER6.urdf');
+        ik = inverseKinematics('RigidBodyTree', mover6);
+        weights = [0.25 0.25 0.25 1 1 1];
+        initialguess = mover6.homeConfiguration;
     end
-    
-    ik = inverseKinematics('RigidBodyTree', mover6);
-    weights = [0.25 0.25 0.25 1 1 1]; 
-    initialguess = mover6.homeConfiguration;
 
-    % 2. CREATE THE TRANSFORMATION MATRIX
-    % We need to calculate one matrix for each component and multiply them 
-    % in the order X -> Y -> Z -> A -> B -> C.
+    % 2. CREATE THE TRANSFORMATION MATRIX (XYZABC Order)
     
-    % --- Translations (using trvec2tform) ---
-    Tx = trvec2tform([target_x, 0, 0]);
-    Ty = trvec2tform([0, target_y, 0]);
-    Tz = trvec2tform([0, 0, target_z]);
+    % --- Translations ---
+    Tx = trvec2tform([X, 0, 0]);
+    Ty = trvec2tform([0, Y, 0]);
+    Tz = trvec2tform([0, 0, Z]);
     
-    % --- Rotations (using eul2tform) ---
-    % Note: eul2tform uses 'ZYX' order by default: [Z-angle, Y-angle, X-angle]
+    % --- Rotations ---
+    % Inputs are in degrees, so we convert to radians.
+    % A = Rotation about Z
+    Ta = eul2tform([deg2rad(A), 0, 0]); 
     
-    % A = Rotation about Z (Yaw)
-    % We put the angle in the 1st slot (Z) and leave others 0
-    Ta = eul2tform([deg2rad(target_A), 0, 0]); 
+    % B = Rotation about Y
+    Tb = eul2tform([0, deg2rad(B), 0]); 
     
-    % B = Rotation about Y (Pitch)
-    % We put the angle in the 2nd slot (Y)
-    Tb = eul2tform([0, deg2rad(target_B), 0]); 
-    
-    % C = Rotation about X (Roll)
-    % We put the angle in the 3rd slot (X)
-    Tc = eul2tform([0, 0, deg2rad(target_C)]); 
+    % C = Rotation about X
+    Tc = eul2tform([0, 0, deg2rad(C)]); 
     
     % 3. MULTIPLY IN ORDER (XYZABC)
+    % This creates the final Target Matrix
     targetTform = Tx * Ty * Tz * Ta * Tb * Tc;
     
-    % --- OUTPUTS ---
-    disp('-----------------------------------------');
-    disp('1. Final Transformation Matrix (Goal):');
+    % Debug: Display the matrix so you can verify it
+    disp('Target Matrix:');
     disp(targetTform);
-    
+
     % 4. SOLVE INVERSE KINEMATICS
+    % We ask the solver to find the joint angles that match this matrix
     [configSoln, solnInfo] = ik('link6', targetTform, weights, initialguess);
     
-    disp('2. IK Solver Status:');
-    disp(solnInfo.Status);
-    
-    disp('3. Calculated Joint Angles:');
-    % Extract just the numbers for easy reading
-    jointAngles = [configSoln.JointPosition];
-    disp(jointAngles);
-    
-    % 5. VISUALIZE
+    % Optional: Check if it actually worked
+    if strcmp(solnInfo.Status, 'success')
+        disp('IK Status: Success');
+    else
+        disp(['IK Status: ' solnInfo.Status]);
+    end
+
+    % 5. VISUALIZATION
+    % (You can comment this out if you want it to run silently)
     figure(1);
     show(mover6, configSoln);
-    title(['Solution for X=' num2str(target_x) ' Y=' num2str(target_y) ' Z=' num2str(target_z)]);
+    title(['Solution for X=' num2str(X) ' Y=' num2str(Y) ' Z=' num2str(Z)]);
     hold on;
-    % Plot the goal frame to verify the robot reached it
     plotTransforms(tform2trvec(targetTform), tform2quat(targetTform), 'FrameSize', 0.2);
     hold off;
 end
