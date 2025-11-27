@@ -23,6 +23,5 @@ Tc = eul2tform([0, 0, deg2rad(C)]);
 targetTform = Tx * Ty * Tz * Ta * Tb * Tc;
 
 %   ik solver, get the transformation solution 
-[configSoln, solnInfo] = ik('link6', targetTform, weights, initallguess);
-solnTform = getTransform(mover6, configSoln, 'link6', 'base_link');
+[configSoln, solnInfo] = ik('link6', targetTform, weights, initalguess);
 end
