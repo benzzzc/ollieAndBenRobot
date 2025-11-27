@@ -1,0 +1,23 @@
+mover6 = importrobot('CPMOVER6.urdf');
+ik = inverseKinematics('RigidBodyTree', mover6);
+weights = [0.25 0.25 0.25 1 1 1];
+
+%if we want to choose our config, we need to ensure that it actuallu works, use forward kinematics
+targetConfig = randomConfiguration(mover6); % sets the configuration we want,i set this to random, but you can set the configuration to however you want
+targetTform = getTransform(mover6, targetConfig, 'link6', 'base_link');
+disp('target transform');
+
+for i = 1:5
+    fprintf('\n Attempt #%d\n', i);
+    seedConfig = randomConfiguration(mover6); % random seed config, that is set
+    [configSoln, solnInfo] = ik('link6', targetTform, weights, seedConfig);%solve ik for new seed
+    solnTform = getTransform(mover6, configSoln, 'link6', 'base_link');
+    distError = norm(targetTform(1:3,4) - solnTform(1:3,4));
+    if distError < 0.01
+        disp('success');
+    else
+        disp('failed');
+    end
+end
+
+% could add a plot to see all the configs
