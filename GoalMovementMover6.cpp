@@ -21,6 +21,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
 #include <sstream>
+#include <array>
+#include <cmath>
 using std::placeholders::_1;
 using namespace std::chrono_literals;
 
@@ -75,12 +77,14 @@ private:
     	known_states=true;
     	//RCLCPP_INFO(this->get_logger(),"Received State %f\t%f\t%f\t%f\t%f\t%f", joint1_angle, joint2_angle, joint3_angle, joint4_angle, joint5_angle, joint6_angle);
 	}
-	void send_msg(float vel) {
+	void send_msg(const std::array<float, 6> &velocities) {
     	auto msg_start = control_msgs::msg::JointJog();
-    	std::stringstream ss;
-    	ss << "joint1";
-    	msg_start.joint_names.push_back(ss.str());
-    	msg_start.velocities.push_back(vel);
+		for (size_t i = 0; i < velocities.size(); ++i) {
+	    	std::stringstream ss;
+	    	ss << "joint" << (i + 1);
+	    	msg_start.joint_names.push_back(ss.str());
+	    	msg_start.velocities.push_back(velocities[i]);
+		}
     	publisherJointPosition_->publish(msg_start);
 	}
 	void move_my_robot() {
@@ -90,17 +94,36 @@ private:
         	RCLCPP_INFO(this->get_logger(),"Waiting");
         	loop_rate.sleep();
     	}
-    	jointdemand_1=0.9;
+		// Set desired targets for all six joints (radians). Adjust to suit your move goal.
+		std::array<float, 6> joint_demands = {
+			0.9f,   // joint 1
+			0.5f,   // joint 2
+			0.0f,   // joint 3
+			0.3f,   // joint 4
+			0.0f,   // joint 5
+			0.0f    // joint 6
+		};
+
     	if(known_states) {
-        	while(1) {
-            	if(abs(jointdemand_1-joint1_angle)>0.03) {
-                	send_msg(0.25*(jointdemand_1-joint1_angle)/abs(jointdemand_1-joint1_angle));
-            	}
-            	if(abs(jointdemand_1-joint1_angle)<0.03) {
-                	send_msg(0);
-            	}
-        	}
-        	loop_rate.sleep();
+			while (rclcpp::ok()) {
+				std::array<float, 6> current = {
+					joint1_angle, joint2_angle, joint3_angle,
+					joint4_angle, joint5_angle, joint6_angle
+				};
+
+				std::array<float, 6> velocities{};
+				for (size_t i = 0; i < joint_demands.size(); ++i) {
+					float error = joint_demands[i] - current[i];
+					if (std::abs(error) > 0.03f) {
+						velocities[i] = 0.25f * (error / std::abs(error));
+					} else {
+						velocities[i] = 0.0f;
+					}
+				}
+
+				send_msg(velocities);
+				loop_rate.sleep();
+			}
     	}
 	}
 	bool known_states=false;
